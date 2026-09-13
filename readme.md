@@ -101,6 +101,23 @@ Telemetry::report()
                 ->init();
 ```
 
+### # Replace the Opt-In Admin Notice
+
+**⚡️ Filter Hook to Set the Whole Notice Content :**
+
+Return a non-empty HTML string to replace the default opt-in notice. `$args` provides `title`, `optInUrl`, `optOutUrl`, `termsUrl` and `policyUrl`.
+
+```php
+add_filter($plugin_prefix . 'telemetry_opt_in_notice_html', 'render_opt_in_notice', 10, 2);
+
+function render_opt_in_notice($html, $args)
+{
+  return '<div class="updated"><p>Help us make ' . esc_html($args['title']) . ' better</p>'
+    . '<a href="' . esc_url($args['optInUrl']) . '">Allow</a> '
+    . '<a href="' . esc_url($args['optOutUrl']) . '">Skip</a></div>';
+}
+```
+
 ### # Deactivation Feedback Survey
 
 **⚡️ Filter Hook to Add Deactivate Reasons :**

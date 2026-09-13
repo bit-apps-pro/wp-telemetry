@@ -44,7 +44,7 @@ class Report
             return;
         }
 
-        Telemetry::view('reportOptIn', [
+        $args = [
             'termsUrl'    => TelemetryConfig::getTermsUrl(),
             'policyUrl'   => TelemetryConfig::getPolicyUrl(),
             'optInUrl'    => wp_nonce_url(add_query_arg(TelemetryConfig::getPrefix() . 'tracking_opt_in', 'true'), '_wpnonce'),
@@ -53,7 +53,26 @@ class Report
             'title'       => TelemetryConfig::getTitle(),
             'description' => $this->getDescription()
             // 'dataWeCollect' => implode(', ', $this->dataWeCollect()),
-        ]);
+        ];
+
+        /**
+         * Filters the full HTML of the tracking opt-in admin notice.
+         *
+         * Return a non-empty string to replace the default notice entirely.
+         * The default notice is rendered when nothing is returned.
+         *
+         * @param string $html Empty string by default.
+         * @param array  $args View arguments (title, description, optInUrl, optOutUrl, termsUrl, policyUrl, prefix).
+         */
+        $html = apply_filters(TelemetryConfig::getPrefix() . 'telemetry_opt_in_notice_html', '', $args);
+
+        if (\is_string($html) && $html !== '') {
+            echo wp_kses_post($html);
+
+            return;
+        }
+
+        Telemetry::view('reportOptIn', $args);
     }
 
     public function getDescription()
