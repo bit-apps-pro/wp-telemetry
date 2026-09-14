@@ -1,8 +1,8 @@
 <div class="updated" style="border: 1px solid #c3c4c7; padding: 15px">
-	<h1 style="padding: 0;">We hope you love <?php echo esc_attr($args['title']); ?>.</h1>
+	<h1 style="padding: 0;"><?php echo wp_kses_post($args['heading']); ?></h1>
 
 	<p style="margin-bottom: 15px;">
-		<?php echo esc_attr($args['description']); ?>
+		<?php echo wp_kses_post($args['description']); ?>
 	</p>
 
 	<div style="display: flex; justify-content: space-between;">

@@ -27,7 +27,7 @@ class Report
 
     public function initCommonHooks()
     {
-        if (!$this->isTrackingNoticeDismissed()) {
+        if (TelemetryConfig::getShowAdminNotice() && !$this->isTrackingNoticeDismissed()) {
             add_action('admin_notices', [$this, 'adminNotice']);
         }
 
@@ -50,15 +50,27 @@ class Report
             'optInUrl'    => wp_nonce_url(add_query_arg(TelemetryConfig::getPrefix() . 'tracking_opt_in', 'true'), '_wpnonce'),
             'optOutUrl'   => wp_nonce_url(add_query_arg(TelemetryConfig::getPrefix() . 'tracking_opt_out', 'true'), '_wpnonce'),
             'prefix'      => TelemetryConfig::getPrefix(),
-            'title'       => TelemetryConfig::getTitle(),
+            'heading'     => $this->getHeading(),
             'description' => $this->getDescription()
             // 'dataWeCollect' => implode(', ', $this->dataWeCollect()),
         ]);
     }
 
+    public function getHeading()
+    {
+        $heading = \sprintf(
+            // Translators: The plugin name.
+            esc_html__('We hope you love %1$s.', '%2$s'),
+            TelemetryConfig::getTitle(),
+            TelemetryConfig::getSlug()
+        );
+
+        return apply_filters(TelemetryConfig::getPrefix() . 'telemetry_notice_heading', $heading);
+    }
+
     public function getDescription()
     {
-        return sprintf(
+        $description = \sprintf(
             // Translators: The user name and the plugin name.
             esc_html__(
                 'Hi, %1$s! This is an invitation to help our %2$s community.
@@ -71,6 +83,8 @@ class Report
             TelemetryConfig::getTitle(),
             TelemetryConfig::getSlug()
         );
+
+        return apply_filters(TelemetryConfig::getPrefix() . 'telemetry_notice_description', $description);
     }
 
     public function handleTrackingOptInOptOut()

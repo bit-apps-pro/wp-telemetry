@@ -18,6 +18,8 @@ class TelemetryConfig
 
     private static $serverBaseUrl = '';
 
+    private static $showAdminNotice = true;
+
     public static function setTitle($title)
     {
         self::$title = $title;
@@ -86,5 +88,15 @@ class TelemetryConfig
     public static function getServerBaseUrl()
     {
         return self::$serverBaseUrl;
+    }
+
+    public static function setShowAdminNotice($show)
+    {
+        self::$showAdminNotice = (bool) $show;
+    }
+
+    public static function getShowAdminNotice()
+    {
+        return self::$showAdminNotice;
     }
 }
