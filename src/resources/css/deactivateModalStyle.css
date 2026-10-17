@@ -7,6 +7,10 @@
   display: none;
 }
 
+.bitapps-dm-dialog:focus {
+  outline: none;
+}
+
 .bitapps-dm-dialog {
   width: 550px;
   position: absolute;
@@ -110,6 +114,12 @@ div.bitapps-dm-feedback-text {
   margin-bottom: 20px;
   font-size: 0.9375rem;
   font-weight: 500;
+}
+
+.bitapps-dm-form-disclosure {
+  padding-top: 15px;
+  color: #646970;
+  font-size: 0.8125rem;
 }
 
 .bitapps-dm-form-footer button {

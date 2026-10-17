@@ -67,8 +67,8 @@ class ReportInfo
         $lastName = '';
 
         if ($adminUser) {
-            $firstName = $adminUser->firstName ? $adminUser->firstName : $adminUser->display_name;
-            $lastName = $adminUser->lastName;
+            $firstName = $adminUser->first_name ? $adminUser->first_name : $adminUser->display_name;
+            $lastName = $adminUser->last_name;
         }
 
         return [
@@ -112,8 +112,7 @@ class ReportInfo
         $serverData = [];
 
         if (isset($_SERVER['SERVER_SOFTWARE']) && !empty($_SERVER['SERVER_SOFTWARE'])) {
-            // phpcs:ignore
-            $serverData['software'] = $_SERVER['SERVER_SOFTWARE'];
+            $serverData['software'] = sanitize_text_field(wp_unslash($_SERVER['SERVER_SOFTWARE']));
         }
 
         if (\function_exists('phpversion')) {
@@ -124,7 +123,7 @@ class ReportInfo
 
         $serverData['php_max_upload_size'] = size_format(wp_max_upload_size());
         $serverData['php_default_timezone'] = date_default_timezone_get();
-        $serverData['php_soap'] = class_exists('SoapTelemetryConfig') ? 'Yes' : 'No';
+        $serverData['php_soap'] = class_exists('SoapClient') ? 'Yes' : 'No';
         $serverData['php_fsockopen'] = \function_exists('fsockopen') ? 'Yes' : 'No';
         $serverData['php_curl'] = \function_exists('curl_init') ? 'Yes' : 'No';
 
@@ -239,23 +238,16 @@ class ReportInfo
     }
 
     /**
-     * Get user IP Address
+     * @deprecated 1.1.0 The lookup called a third-party service (icanhazip.com) that the opt-in
+     *                   notice didn't disclose. Read the IP from the request on your server instead.
+     *
+     * @return string Always empty
      */
     public function getUserIpAddress()
     {
-        $response = wp_remote_get('https://icanhazip.com/');
+        _deprecated_function(__METHOD__, '1.1.0');
 
-        if (is_wp_error($response)) {
-            return '';
-        }
-
-        $ip = trim(wp_remote_retrieve_body($response));
-
-        if (!filter_var($ip, FILTER_VALIDATE_IP)) {
-            return '';
-        }
-
-        return $ip;
+        return '';
     }
 
     /**

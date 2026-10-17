@@ -11,7 +11,8 @@ class Telemetry
 
     private static $feedback;
 
-    private static $version = '0.0.1';
+    // Sent as wp_telemetry so the server can tell payload versions apart; bump on every release.
+    private static $version = '1.1.0';
 
     public static function getVersion()
     {
@@ -34,6 +35,34 @@ class Telemetry
         }
 
         return self::$feedback;
+    }
+
+    /**
+     * Ready-to-print labels for the opt-in notice and the deactivation survey. A bundled library
+     * can't use the host plugin's text domain as a literal, so plugins translate these through
+     * the telemetry_strings filter with their own __() calls.
+     *
+     * @return array
+     */
+    public static function strings()
+    {
+        $title = TelemetryConfig::getTitle();
+
+        $defaults = [
+            'allow'             => 'Allow & Continue',
+            'skip'              => 'Skip',
+            'dismiss'           => 'Dismiss this notice.',
+            'data_shared'       => 'Data shared if you allow:',
+            'terms'             => 'Terms of service',
+            'privacy'           => 'Privacy Policy',
+            'survey_title'      => 'Quick Feedback',
+            'survey_caption'    => \sprintf('If you have a moment, please let us know how "%s" can improve.', $title),
+            'survey_disclosure' => \sprintf('Submitting sends your site URL, site language and your answer to the %s team.', $title),
+            'survey_submit'     => 'Submit & Deactivate',
+            'survey_skip'       => 'Skip & Deactivate',
+        ];
+
+        return wp_parse_args(apply_filters(TelemetryConfig::getPrefix() . 'telemetry_strings', $defaults), $defaults);
     }
 
     public static function view($fileName, $args)

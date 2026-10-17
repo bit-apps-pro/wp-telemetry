@@ -32,11 +32,27 @@ class Feedback
      */
     public function enqueueFeedbackDialogScripts()
     {
+        // Free and pro editions can both run this for one slug. Every bundled copy shares WordPress's
+        // action counts, so the first copy claims the slug and the others print nothing.
+        $claim = 'bitapps_telemetry_deactivate_modal_' . TelemetryConfig::getSlug();
+
+        if (did_action($claim)) {
+            return;
+        }
+
+        do_action($claim);
+
         add_action('admin_footer', [$this, 'printDeactivateFeedbackDialog']);
 
-        $cssFilePath = $this->getAssetPath() . 'resources/css/deactivateModalStyle.css';
-        wp_register_style(TelemetryConfig::getPrefix() . 'deactivate_modal', $cssFilePath, [], TelemetryConfig::getVersion());
-        wp_enqueue_style(TelemetryConfig::getPrefix() . 'deactivate_modal');
+        $handle = TelemetryConfig::getPrefix() . 'deactivate_modal';
+        $resourcesUrl = $this->getAssetPath() . 'resources/';
+
+        wp_enqueue_style($handle, $resourcesUrl . 'css/deactivateModalStyle.css', [], TelemetryConfig::getVersion());
+        wp_enqueue_script($handle, $resourcesUrl . 'js/deactivateModal.js', ['jquery'], TelemetryConfig::getVersion(), true);
+
+        // Printed right after this copy's script, so each plugin's modal runs the code shipped with its
+        // own markup, even when other plugins on the site bundle a different version of this library.
+        wp_add_inline_script($handle, 'bitappsTelemetryDeactivateModal(' . wp_json_encode(TelemetryConfig::getSlug()) . ');');
     }
 
     public static function getAssetPath()
@@ -54,44 +70,53 @@ class Feedback
     public function printDeactivateFeedbackDialog()
     {
         Telemetry::view('deactivateModal', [
-            'slug'    => TelemetryConfig::getSlug(),
-            'prefix'  => TelemetryConfig::getPrefix(),
-            'title'   => TelemetryConfig::getTitle(),
-            'reasons' => $this->getDeactivateReasons(),
+            'slug'      => TelemetryConfig::getSlug(),
+            'prefix'    => TelemetryConfig::getPrefix(),
+            'policyUrl' => TelemetryConfig::getPolicyUrl(),
+            'reasons'   => $this->getDeactivateReasons(),
+            'strings'   => Telemetry::strings(),
         ]);
     }
 
+    /**
+     * Plain strings: a bundled library can't use the host plugin's text domain as a
+     * literal, so plugins translate these through the deactivate_reasons filter.
+     *
+     * @return array
+     */
     public function getDeactivateReasons()
     {
+        $title = TelemetryConfig::getTitle();
+
         $reasons = [
             'found_a_better_plugin' => [
-                'title'       => esc_html__('Found a better plugin', TelemetryConfig::getSlug()),
-                'placeholder' => esc_html__('Which plugin?', TelemetryConfig::getSlug()),
+                'title'       => 'Found a better plugin',
+                'placeholder' => 'Which plugin?',
             ],
             'missing_specific_feature' => [
-                'title'       => esc_html__('Missing a specific feature', TelemetryConfig::getSlug()),
-                'placeholder' => esc_html__('Could you tell us more about that feature?', TelemetryConfig::getSlug()),
+                'title'       => 'Missing a specific feature',
+                'placeholder' => 'Could you tell us more about that feature?',
             ],
             'not_working' => [
-                'title'       => esc_html__('Not working', TelemetryConfig::getSlug()),
-                'placeholder' => esc_html__('Could you tell us what is not working?', TelemetryConfig::getSlug()),
+                'title'       => 'Not working',
+                'placeholder' => 'Could you tell us what is not working?',
             ],
             'not_working_as_expected' => [
-                'title'       => esc_html__('Not working as expected', TelemetryConfig::getSlug()),
-                'placeholder' => esc_html__('Could you tell us what do you expect?', TelemetryConfig::getSlug()),
+                'title'       => 'Not working as expected',
+                'placeholder' => 'Could you tell us what do you expect?',
             ],
             'temporary_deactivation' => [
-                'title'       => esc_html__('It\'s a temporary deactivation', TelemetryConfig::getSlug()),
+                'title'       => 'It\'s a temporary deactivation',
                 'placeholder' => '',
             ],
             TelemetryConfig::getPrefix() . 'pro' => [
-                'title'       => esc_html__('I have ' . TelemetryConfig::getTitle() . ' Pro', TelemetryConfig::getSlug()),
+                'title'       => \sprintf('I have %s Pro', $title),
                 'placeholder' => '',
-                'alert'       => esc_html__('Wait! Don\'t deactivate ' . TelemetryConfig::getTitle() . '. You have to activate both ' . TelemetryConfig::getTitle() . ' and ' . TelemetryConfig::getTitle() . ' Pro in order to work the plugin.', TelemetryConfig::getSlug()),
+                'alert'       => \sprintf('Wait! Don\'t deactivate %1$s. You have to activate both %1$s and %1$s Pro in order to work the plugin.', $title),
             ],
             'other' => [
-                'title'       => esc_html__('Other', TelemetryConfig::getSlug()),
-                'placeholder' => esc_html__('Please share the reason', TelemetryConfig::getSlug()),
+                'title'       => 'Other',
+                'placeholder' => 'Please share the reason',
             ],
         ];
 
@@ -119,11 +144,21 @@ class Feedback
             wp_send_json_error('Permission denied');
         }
 
+        $reasonKey = isset($_POST['reason_key']) ? sanitize_text_field(wp_unslash($_POST['reason_key'])) : '';
+
+        // Answers arrive as reason_text[<key>]: PHP keeps keys inside brackets as sent, but turns
+        // spaces and dots in top-level field names into underscores.
+        $reasonTexts = isset($_POST['reason_text']) && \is_array($_POST['reason_text'])
+            ? map_deep(wp_unslash($_POST['reason_text']), 'sanitize_text_field')
+            : [];
+        $feedback = isset($reasonTexts[$reasonKey]) && \is_string($reasonTexts[$reasonKey]) ? $reasonTexts[$reasonKey] : '';
+
+        // Strict checks: '0' is a valid key (reasons appended with []) and a valid answer.
         $report = [];
         $report['url'] = esc_url(home_url());
         $report['site_lang'] = get_bloginfo('language');
-        $report['feedback_key'] = sanitize_text_field(wp_unslash($_POST['reason_key'])) ?: null;
-        $report['feedback'] = sanitize_text_field(wp_unslash($_POST["reason_{$report['feedback_key']}"])) ?: null;
+        $report['feedback_key'] = $reasonKey !== '' ? $reasonKey : null;
+        $report['feedback'] = $feedback !== '' ? $feedback : null;
         $report['plugin_slug'] = TelemetryConfig::getPrefix();
         $report['plugin_version'] = TelemetryConfig::getversion();
 

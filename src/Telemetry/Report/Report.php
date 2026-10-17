@@ -40,30 +40,30 @@ class Report
 
     public function adminNotice()
     {
-        if ($this->isTrackingNoticeDismissed() || $this->isTrackingAllowed() || !current_user_can('manage_options')) {
+        if (
+            !current_user_can('manage_options')
+            || !$this->isNoticeScreen()
+            || $this->isTrackingNoticeDismissed()
+            || $this->isTrackingAllowed()
+        ) {
             return;
         }
 
         Telemetry::view('reportOptIn', [
-            'termsUrl'    => TelemetryConfig::getTermsUrl(),
-            'policyUrl'   => TelemetryConfig::getPolicyUrl(),
-            'optInUrl'    => wp_nonce_url(add_query_arg(TelemetryConfig::getPrefix() . 'tracking_opt_in', 'true'), '_wpnonce'),
-            'optOutUrl'   => wp_nonce_url(add_query_arg(TelemetryConfig::getPrefix() . 'tracking_opt_out', 'true'), '_wpnonce'),
-            'prefix'      => TelemetryConfig::getPrefix(),
-            'heading'     => $this->getHeading(),
-            'description' => $this->getDescription()
-            // 'dataWeCollect' => implode(', ', $this->dataWeCollect()),
+            'termsUrl'      => TelemetryConfig::getTermsUrl(),
+            'policyUrl'     => TelemetryConfig::getPolicyUrl(),
+            'optInUrl'      => wp_nonce_url(add_query_arg(TelemetryConfig::getPrefix() . 'tracking_opt_in', 'true'), '_wpnonce'),
+            'optOutUrl'     => wp_nonce_url(add_query_arg(TelemetryConfig::getPrefix() . 'tracking_opt_out', 'true'), '_wpnonce'),
+            'heading'       => $this->getHeading(),
+            'description'   => $this->getDescription(),
+            'dataWeCollect' => $this->dataWeCollect(),
+            'strings'       => Telemetry::strings(),
         ]);
     }
 
     public function getHeading()
     {
-        $heading = \sprintf(
-            // Translators: The plugin name.
-            esc_html__('We hope you love %1$s.', '%2$s'),
-            TelemetryConfig::getTitle(),
-            TelemetryConfig::getSlug()
-        );
+        $heading = \sprintf('We hope you love %s.', esc_html(TelemetryConfig::getTitle()));
 
         return apply_filters(TelemetryConfig::getPrefix() . 'telemetry_notice_heading', $heading);
     }
@@ -71,17 +71,9 @@ class Report
     public function getDescription()
     {
         $description = \sprintf(
-            // Translators: The user name and the plugin name.
-            esc_html__(
-                'Hi, %1$s! This is an invitation to help our %2$s community.
-				If you opt-in, some data about your usage of %2$s will be shared with our teams (so they can work their butts off to improve).
-				We will also share some helpful info on WordPress, and our products from time to time.
-				And if you skip this, that’s okay! Plugin still work just fine.',
-                '%3$s'
-            ),
-            wp_get_current_user()->display_name,
-            TelemetryConfig::getTitle(),
-            TelemetryConfig::getSlug()
+            'Hi, %1$s! Would you like to help us improve %2$s? If you allow it, the data listed below is sent to our team once a week. Nothing is sent if you skip, and %2$s works the same either way.',
+            esc_html(wp_get_current_user()->display_name),
+            esc_html(TelemetryConfig::getTitle())
         );
 
         return apply_filters(TelemetryConfig::getPrefix() . 'telemetry_notice_description', $description);
@@ -89,6 +81,17 @@ class Report
 
     public function handleTrackingOptInOptOut()
     {
+        $optInKey = TelemetryConfig::getPrefix() . 'tracking_opt_in';
+        $optOutKey = TelemetryConfig::getPrefix() . 'tracking_opt_out';
+        $optIn = isset($_GET[$optInKey]) && $_GET[$optInKey] === 'true';
+        $optOut = isset($_GET[$optOutKey]) && $_GET[$optOutKey] === 'true';
+
+        // Only this plugin's links: verifying every admin request's nonce would fire
+        // wp_verify_nonce_failed for other plugins' and core's links.
+        if (!$optIn && !$optOut) {
+            return;
+        }
+
         if (
             !isset($_GET['_wpnonce'])
             || !wp_verify_nonce(sanitize_key($_GET['_wpnonce']), '_wpnonce')
@@ -97,25 +100,35 @@ class Report
             return;
         }
 
-        $optInKey = TelemetryConfig::getPrefix() . 'tracking_opt_in';
-
-        if (isset($_GET[$optInKey]) && $_GET[$optInKey] === 'true') {
-            $this->trackingOptIn();
-            wp_safe_redirect(remove_query_arg($optInKey));
-            exit;
-        }
-
-        $optOutKey = TelemetryConfig::getPrefix() . 'tracking_opt_out';
-
-        if (isset($_GET[$optOutKey]) && $_GET[$optOutKey] === 'true') {
+        if ($optIn) {
+            $this->trackingOptIn('notice');
+        } else {
             $this->trackingOptOut();
-            wp_safe_redirect(remove_query_arg($optOutKey));
-            exit;
         }
+
+        wp_safe_redirect(remove_query_arg([$optInKey, $optOutKey]));
+        exit;
     }
 
-    public function trackingOptIn()
+    /**
+     * @param string $source Where the user opted in, e.g. 'notice' for the admin notice or
+     *                       'settings' for a plugin settings toggle. Sent as opt_in_source.
+     */
+    public function trackingOptIn($source = 'custom')
     {
+        // A repeat call (e.g. on every settings save) isn't a new opt-in: keep the first source and
+        // only restore the weekly event if it went missing.
+        if ($this->isTrackingAllowed()) {
+            $this->scheduleEvent();
+
+            return;
+        }
+
+        // As a hook callback this receives '' or an object; that is still a custom opt-in place.
+        $source = \is_string($source) ? sanitize_key($source) : '';
+        $source = $source !== '' ? $source : 'custom';
+
+        update_option(TelemetryConfig::getPrefix() . 'tracking_opt_in_source', $source, false);
         update_option(TelemetryConfig::getPrefix() . 'allow_tracking', true);
         update_option(TelemetryConfig::getPrefix() . 'tracking_notice_dismissed', true);
 
@@ -123,15 +136,18 @@ class Report
         $this->scheduleEvent();
         $this->sendTrackingReport();
 
-        do_action(TelemetryConfig::getPrefix() . 'tracking_opt_in');
+        do_action(TelemetryConfig::getPrefix() . 'tracking_opt_in', $source);
     }
 
     public function trackingOptOut()
     {
         update_option(TelemetryConfig::getPrefix() . 'allow_tracking', false);
         update_option(TelemetryConfig::getPrefix() . 'tracking_notice_dismissed', true);
+        delete_option(TelemetryConfig::getPrefix() . 'tracking_opt_in_source');
 
-        $this->trackingSkippedRequest();
+        // Stays local: contacting the server after the user says no breaks WordPress.org guideline 7.
+        update_option(TelemetryConfig::getPrefix() . 'tracking_skipped', true, false);
+
         $this->clearScheduleEvent();
 
         do_action(TelemetryConfig::getPrefix() . 'tracking_opt_out');
@@ -139,9 +155,11 @@ class Report
 
     public function addWeeklySchedule($schedules)
     {
+        // Core has 'weekly' since WordPress 5.4 and merges its own over this; kept for hosts that
+        // still support older versions, where scheduling 'weekly' would otherwise fail.
         $schedules['weekly'] = [
-            'interval' => 604800, // 1 week in seconds
-            'display'  => __('Once Weekly')
+            'interval' => WEEK_IN_SECONDS,
+            'display'  => 'Once Weekly'
         ];
 
         return $schedules;
@@ -163,6 +181,21 @@ class Report
         $this->clearScheduleEvent();
 
         delete_option(TelemetryConfig::getPrefix() . 'tracking_notice_dismissed');
+    }
+
+    /**
+     * Deletes the options and the weekly event the library stores for a plugin. Call it from the
+     * plugin's uninstall routine with the plugin's prefix, since telemetry may not be set up there.
+     *
+     * @param string $prefix The prefix given to TelemetryConfig::setPrefix()
+     */
+    public function deleteData($prefix)
+    {
+        foreach (['allow_tracking', 'tracking_notice_dismissed', 'tracking_skipped', 'tracking_last_sended_at', 'tracking_opt_in_source'] as $option) {
+            delete_option($prefix . $option);
+        }
+
+        wp_clear_scheduled_hook($prefix . 'send_tracking_event');
     }
 
     public function isTrackingAllowed()
@@ -207,11 +240,12 @@ class Report
             'users'            => $reportInfo->getUserCounts(),
             'active_plugins'   => \count($allPlugins['activePlugins']),
             'inactive_plugins' => \count($allPlugins['inactivePlugins']),
-            'ip_address'       => $reportInfo->getUserIpAddress(),
+            'ip_address'       => '', // IP lookup removed; key kept for servers that expect it.
             'plugin_slug'      => TelemetryConfig::getPrefix(),
             'plugin_version'   => TelemetryConfig::getversion(),
             'is_local'         => $reportInfo->isLocalServer(),
-            'skipped'          => false
+            'skipped'          => false,
+            'opt_in_source'    => get_option(TelemetryConfig::getPrefix() . 'tracking_opt_in_source', ''),
         ];
 
         if ($this->addPluginData) {
@@ -228,41 +262,58 @@ class Report
         return apply_filters(TelemetryConfig::getPrefix() . 'telemetry_data', $data);
     }
 
-    protected function dataWeCollect()
+    /**
+     * What getTrackingData() sends, in words, so consent covers all of it. The opt-in notice
+     * shows it, and plugins show it next to their own opt-in settings. Plugins that add data
+     * through the telemetry_data or telemetry_additional_data filters must add it here through
+     * the telemetry_data_we_collect filter.
+     *
+     * @return array
+     */
+    public function dataWeCollect()
     {
         $collectList = [
-            'Server environment details (php, mysql, server, WordPress versions)',
-            'Number of users in your site',
-            'Site language',
-            'Number of active and inactive plugins',
             'Site name and URL',
-            'Your name and email address',
+            'Site admin email address and the first administrator\'s name',
+            'Server environment (server software, PHP and MySQL versions, PHP settings, whether the site is local)',
+            'WordPress version, language and settings (memory limit, debug mode, multisite)',
+            'Active theme (name, version, author, website)',
+            'Number of users, in total and per role',
+            'Number of active and inactive plugins',
+            TelemetryConfig::getTitle() . ' version and telemetry library version',
+            'Which page you opted in from, and whether you skipped this before',
         ];
 
         if ($this->addPluginData) {
-            array_splice($collectList, 4, 0, ["active plugins' name"]);
+            $collectList[] = 'Names and versions of active plugins';
         }
 
-        return $collectList;
+        $collectList = apply_filters(TelemetryConfig::getPrefix() . 'telemetry_data_we_collect', $collectList);
+
+        // A filter may return a string or nested values; only plain items can be printed.
+        return array_values(array_filter((array) $collectList, 'is_scalar'));
     }
 
-    private function trackingSkippedRequest()
+    /**
+     * Keep the opt-in notice to the dashboard, the plugins page and the screens under the
+     * plugin's own admin menu (WordPress.org guideline 11).
+     *
+     * @return bool
+     */
+    private function isNoticeScreen()
     {
-        $previouslySkipped = get_option(TelemetryConfig::getPrefix() . 'tracking_skipped');
+        // Not defined outside wp-admin, where some plugins still fire admin_notices.
+        $screen = \function_exists('get_current_screen') ? get_current_screen() : null;
+        $slug = TelemetryConfig::getSlug();
 
-        if (!$previouslySkipped) {
-            update_option(TelemetryConfig::getPrefix() . 'tracking_skipped', true);
-        }
+        // parent_base is the admin menu the screen sits under, so the plugin's post type and
+        // settings screens count, but another plugin whose slug merely contains ours doesn't.
+        $show = $screen && (
+            \in_array($screen->id, ['dashboard', 'plugins'], true)
+            || ($slug && $screen->parent_base === $slug)
+        );
 
-        $data = [
-            'url'                => esc_url(home_url()),
-            'plugin_slug'        => TelemetryConfig::getPrefix(),
-            'plugin_version'     => TelemetryConfig::getversion(),
-            'skipped'            => true,
-            'previously_skipped' => $previouslySkipped,
-        ];
-
-        Telemetry::sendReport('plugin-track-create', $data);
+        return (bool) apply_filters(TelemetryConfig::getPrefix() . 'telemetry_show_notice', $show, $screen);
     }
 
     private function scheduleEvent()
