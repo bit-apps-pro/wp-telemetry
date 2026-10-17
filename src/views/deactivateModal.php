@@ -1,3 +1,8 @@
+<?php
+if (!defined('ABSPATH')) {
+    exit;
+}
+?>
 <div class="bitapps-dm-wrapper" id="<?php echo esc_attr($args['slug']); ?>-bitapps-dm-wrapper" data-slug="<?php echo esc_attr($args['slug']); ?>">
   <div class="bitapps-dm-dialog" role="dialog" aria-modal="true" aria-labelledby="<?php echo esc_attr($args['slug']); ?>-bitapps-dm-title" tabindex="-1">
     <div class="bitapps-dm-header">

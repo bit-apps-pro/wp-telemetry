@@ -155,7 +155,7 @@ Telemetry::report()
 
 **⚡️ List the data you add in the opt-in notice**
 
-The opt-in notice shows a "Data shared if you allow" list so users know what they agree to. Anything you add with `telemetry_data` or `telemetry_additional_data` must be added to this list too. The filter must return an array of strings.
+The opt-in notice has a "What we collect" toggle that opens this list, so users know what they agree to. Anything you add with `telemetry_data` or `telemetry_additional_data` must be added to this list too. The filter must return an array of strings.
 
 ```php
 add_filter($plugin_prefix . 'telemetry_data_we_collect', function ($list) {
@@ -180,16 +180,14 @@ Both accept HTML, so links can be included.
 
 | Filter | Value |
 | --- | --- |
-| `$plugin_prefix . 'telemetry_notice_heading'` | Heading, default `We hope you love {title}.` |
-| `$plugin_prefix . 'telemetry_notice_description'` | Description paragraph |
+| `$plugin_prefix . 'telemetry_notice_heading'` | Heading, default `Hi {user name}, help us make {title} better!` |
+| `$plugin_prefix . 'telemetry_notice_description'` | Description, default `Share diagnostic data and usage info about your use of {title}.` |
+
+The "What we collect" toggle is shown below the description, so the description doesn't need its own link. If your plugin has a setting to turn tracking off, say where it is:
 
 ```php
-add_filter($plugin_prefix . 'telemetry_notice_heading', function ($heading) {
-  return 'Help us make My Plugin better';
-});
-
 add_filter($plugin_prefix . 'telemetry_notice_description', function ($description) {
-  return 'Share diagnostic data and usage info once a week - <a href="https://example.com/what-we-collect/" target="_blank">what we collect</a>';
+  return $description . ' You can opt out anytime from the Support page.';
 });
 ```
 
@@ -211,7 +209,7 @@ The notice and survey text is plain English by default. A bundled library can't 
 | --- | --- |
 | `$plugin_prefix . 'telemetry_strings'` | Buttons, links and labels in the notice and the survey |
 | `$plugin_prefix . 'telemetry_notice_heading'`, `$plugin_prefix . 'telemetry_notice_description'` | The notice heading and description |
-| `$plugin_prefix . 'telemetry_data_we_collect'` | The "Data shared if you allow" list |
+| `$plugin_prefix . 'telemetry_data_we_collect'` | The "What we collect" list |
 | `$plugin_prefix . 'deactivate_reasons'` | The survey reasons |
 
 ```php

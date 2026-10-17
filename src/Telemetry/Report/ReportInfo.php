@@ -35,14 +35,10 @@ class ReportInfo
      */
     public function getPostCount($postType)
     {
-        global $wpdb;
+        $counts = wp_count_posts($postType);
 
-        return (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT count(ID) FROM {$wpdb->posts} WHERE post_type = %s and post_status = %s",
-                [$postType, 'publish']
-            )
-        );
+        // Empty object for an unregistered post type.
+        return isset($counts->publish) ? (int) $counts->publish : 0;
     }
 
     /**

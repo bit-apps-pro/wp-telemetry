@@ -52,7 +52,7 @@ class Telemetry
             'allow'             => 'Allow & Continue',
             'skip'              => 'Skip',
             'dismiss'           => 'Dismiss this notice.',
-            'data_shared'       => 'Data shared if you allow:',
+            'data_shared'       => 'What we collect',
             'terms'             => 'Terms of service',
             'privacy'           => 'Privacy Policy',
             'survey_title'      => 'Quick Feedback',

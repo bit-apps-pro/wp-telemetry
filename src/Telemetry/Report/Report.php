@@ -63,7 +63,11 @@ class Report
 
     public function getHeading()
     {
-        $heading = \sprintf('We hope you love %s.', esc_html(TelemetryConfig::getTitle()));
+        $heading = \sprintf(
+            'Hi %1$s, help us make %2$s better!',
+            esc_html(wp_get_current_user()->display_name),
+            esc_html(TelemetryConfig::getTitle())
+        );
 
         return apply_filters(TelemetryConfig::getPrefix() . 'telemetry_notice_heading', $heading);
     }
@@ -71,8 +75,7 @@ class Report
     public function getDescription()
     {
         $description = \sprintf(
-            'Hi, %1$s! Would you like to help us improve %2$s? If you allow it, the data listed below is sent to our team once a week. Nothing is sent if you skip, and %2$s works the same either way.',
-            esc_html(wp_get_current_user()->display_name),
+            'Share diagnostic data and usage info about your use of %s.',
             esc_html(TelemetryConfig::getTitle())
         );
 
