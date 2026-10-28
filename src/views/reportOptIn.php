@@ -27,19 +27,33 @@ if (!defined('ABSPATH')) {
 		</details>
 	<?php } ?>
 
-	<div style="display: flex; justify-content: space-between; margin-top: 15px;">
-		<div>
-			<a href="<?php echo esc_url($args['optInUrl']); ?>" class="button-primary button-large"><?php echo esc_html($args['strings']['allow']); ?></a> &nbsp;
-			<a href="<?php echo esc_url($args['optOutUrl']); ?>" class="button-secondary button-large" style="border-color: transparent"><?php echo esc_html($args['strings']['skip']); ?></a>
-		</div>
-		<div>
-			<?php if ($args['termsUrl'] !== '') { ?>
-			<a href="<?php echo esc_url($args['termsUrl']); ?>"><?php echo esc_html($args['strings']['terms']); ?></a> &nbsp; &nbsp;
-			<?php } ?>
+	<form method="post" style="margin-top: 15px;">
+		<input type="hidden" name="_wpnonce" value="<?php echo esc_attr($args['nonce']); ?>" />
+		<input type="hidden" name="<?php echo esc_attr($args['optInField']); ?>" value="true" />
 
-			<?php if ($args['policyUrl'] !== '') { ?>
-				<a href="<?php echo esc_url($args['policyUrl']); ?>"><?php echo esc_html($args['strings']['privacy']); ?></a>
-			<?php } ?>
+		<?php if ($args['marketingField'] !== '') { ?>
+			<p style="margin: 0 0 12px;">
+				<label>
+					<input type="checkbox" name="<?php echo esc_attr($args['marketingField']); ?>" value="yes" />
+					<?php echo esc_html($args['strings']['marketing']); ?>
+				</label>
+			</p>
+		<?php } ?>
+
+		<div style="display: flex; justify-content: space-between;">
+			<div>
+				<button type="submit" class="button-primary button-large"><?php echo esc_html($args['strings']['allow']); ?></button> &nbsp;
+				<a href="<?php echo esc_url($args['optOutUrl']); ?>" class="button-secondary button-large" style="border-color: transparent"><?php echo esc_html($args['strings']['skip']); ?></a>
+			</div>
+			<div>
+				<?php if ($args['termsUrl'] !== '') { ?>
+				<a href="<?php echo esc_url($args['termsUrl']); ?>"><?php echo esc_html($args['strings']['terms']); ?></a> &nbsp; &nbsp;
+				<?php } ?>
+
+				<?php if ($args['policyUrl'] !== '') { ?>
+					<a href="<?php echo esc_url($args['policyUrl']); ?>"><?php echo esc_html($args['strings']['privacy']); ?></a>
+				<?php } ?>
+			</div>
 		</div>
-	</div>
+	</form>
 </div>

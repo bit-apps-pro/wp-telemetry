@@ -40,8 +40,10 @@ class Report
 
     public function adminNotice()
     {
+        // Checked here too, so setShowAdminNotice(false) works even when called after init().
         if (
-            !current_user_can('manage_options')
+            !TelemetryConfig::getShowAdminNotice()
+            || !current_user_can('manage_options')
             || !$this->isNoticeScreen()
             || $this->isTrackingNoticeDismissed()
             || $this->isTrackingAllowed()
@@ -50,14 +52,16 @@ class Report
         }
 
         Telemetry::view('reportOptIn', [
-            'termsUrl'      => TelemetryConfig::getTermsUrl(),
-            'policyUrl'     => TelemetryConfig::getPolicyUrl(),
-            'optInUrl'      => wp_nonce_url(add_query_arg(TelemetryConfig::getPrefix() . 'tracking_opt_in', 'true'), '_wpnonce'),
-            'optOutUrl'     => wp_nonce_url(add_query_arg(TelemetryConfig::getPrefix() . 'tracking_opt_out', 'true'), '_wpnonce'),
-            'heading'       => $this->getHeading(),
-            'description'   => $this->getDescription(),
-            'dataWeCollect' => $this->dataWeCollect(),
-            'strings'       => Telemetry::strings(),
+            'termsUrl'       => TelemetryConfig::getTermsUrl(),
+            'policyUrl'      => TelemetryConfig::getPolicyUrl(),
+            'nonce'          => wp_create_nonce('_wpnonce'),
+            'optInField'     => TelemetryConfig::getPrefix() . 'tracking_opt_in',
+            'marketingField' => TelemetryConfig::getShowMarketingOptIn() ? TelemetryConfig::getPrefix() . 'marketing_opt_in' : '',
+            'optOutUrl'      => wp_nonce_url(add_query_arg(TelemetryConfig::getPrefix() . 'tracking_opt_out', 'true'), '_wpnonce'),
+            'heading'        => $this->getHeading(),
+            'description'    => $this->getDescription(),
+            'dataWeCollect'  => $this->dataWeCollect(),
+            'strings'        => Telemetry::strings(),
         ]);
     }
 
@@ -86,24 +90,30 @@ class Report
     {
         $optInKey = TelemetryConfig::getPrefix() . 'tracking_opt_in';
         $optOutKey = TelemetryConfig::getPrefix() . 'tracking_opt_out';
-        $optIn = isset($_GET[$optInKey]) && $_GET[$optInKey] === 'true';
+        $marketingKey = TelemetryConfig::getPrefix() . 'marketing_opt_in';
+
+        // Allow is a form post, so it can carry the marketing checkbox; Skip and the X are links.
+        $optIn = isset($_POST[$optInKey]) && $_POST[$optInKey] === 'true';
         $optOut = isset($_GET[$optOutKey]) && $_GET[$optOutKey] === 'true';
 
-        // Only this plugin's links: verifying every admin request's nonce would fire
+        // Only this plugin's requests: verifying every admin request's nonce would fire
         // wp_verify_nonce_failed for other plugins' and core's links.
         if (!$optIn && !$optOut) {
             return;
         }
 
-        if (
-            !isset($_GET['_wpnonce'])
-            || !wp_verify_nonce(sanitize_key($_GET['_wpnonce']), '_wpnonce')
-            || !current_user_can('manage_options')
-        ) {
+        $nonce = isset($_REQUEST['_wpnonce']) ? sanitize_key(wp_unslash($_REQUEST['_wpnonce'])) : '';
+
+        if (!wp_verify_nonce($nonce, '_wpnonce') || !current_user_can('manage_options')) {
             return;
         }
 
         if ($optIn) {
+            // Before opting in, so the first report already carries the answer.
+            if (TelemetryConfig::getShowMarketingOptIn() && isset($_POST[$marketingKey]) && $_POST[$marketingKey] === 'yes') {
+                $this->setMarketingConsent(true);
+            }
+
             $this->trackingOptIn('notice');
         } else {
             $this->trackingOptOut();
@@ -156,6 +166,30 @@ class Report
         do_action(TelemetryConfig::getPrefix() . 'tracking_opt_out');
     }
 
+    /**
+     * Records whether the admin asked for marketing email. It is separate from tracking consent,
+     * so only set it to true from an explicit choice, such as an unticked checkbox they ticked.
+     * Reports include it when TelemetryConfig::setShowMarketingOptIn(true) is set.
+     *
+     * @param bool $consent
+     */
+    public function setMarketingConsent($consent)
+    {
+        $option = TelemetryConfig::getPrefix() . 'marketing_consent';
+
+        if (!$consent) {
+            delete_option($option);
+        } elseif (!get_option($option)) {
+            // Stores when consent was given, which the server may need as proof.
+            update_option($option, time(), false);
+        }
+    }
+
+    public function hasMarketingConsent()
+    {
+        return (bool) get_option(TelemetryConfig::getPrefix() . 'marketing_consent');
+    }
+
     public function addWeeklySchedule($schedules)
     {
         // Core has 'weekly' since WordPress 5.4 and merges its own over this; kept for hosts that
@@ -194,7 +228,7 @@ class Report
      */
     public function deleteData($prefix)
     {
-        foreach (['allow_tracking', 'tracking_notice_dismissed', 'tracking_skipped', 'tracking_last_sended_at', 'tracking_opt_in_source'] as $option) {
+        foreach (['allow_tracking', 'tracking_notice_dismissed', 'tracking_skipped', 'tracking_last_sended_at', 'tracking_opt_in_source', 'marketing_consent'] as $option) {
             delete_option($prefix . $option);
         }
 
@@ -260,6 +294,13 @@ class Report
             $data['previously_skipped'] = true;
         }
 
+        if (TelemetryConfig::getShowMarketingOptIn()) {
+            $consentedAt = get_option(TelemetryConfig::getPrefix() . 'marketing_consent');
+
+            $data['marketing_consent'] = (bool) $consentedAt;
+            $data['marketing_consent_at'] = $consentedAt ? (int) $consentedAt : null;
+        }
+
         $data['additional_data'] = apply_filters(TelemetryConfig::getPrefix() . 'telemetry_additional_data', []);
 
         return apply_filters(TelemetryConfig::getPrefix() . 'telemetry_data', $data);
@@ -289,6 +330,10 @@ class Report
 
         if ($this->addPluginData) {
             $collectList[] = 'Names and versions of active plugins';
+        }
+
+        if (TelemetryConfig::getShowMarketingOptIn()) {
+            $collectList[] = 'Whether you asked for product emails, and when';
         }
 
         $collectList = apply_filters(TelemetryConfig::getPrefix() . 'telemetry_data_we_collect', $collectList);

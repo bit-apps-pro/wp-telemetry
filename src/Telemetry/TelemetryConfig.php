@@ -20,6 +20,8 @@ class TelemetryConfig
 
     private static $showAdminNotice = true;
 
+    private static $showMarketingOptIn = false;
+
     public static function setTitle($title)
     {
         self::$title = $title;
@@ -98,5 +100,21 @@ class TelemetryConfig
     public static function getShowAdminNotice()
     {
         return self::$showAdminNotice;
+    }
+
+    /**
+     * Ask for marketing email consent: an unticked checkbox in the opt-in notice and a
+     * marketing_consent field in reports.
+     *
+     * @param bool $show
+     */
+    public static function setShowMarketingOptIn($show)
+    {
+        self::$showMarketingOptIn = (bool) $show;
+    }
+
+    public static function getShowMarketingOptIn()
+    {
+        return self::$showMarketingOptIn;
     }
 }

@@ -234,14 +234,14 @@ class ReportInfo
     }
 
     /**
-     * @deprecated 1.1.0 The lookup called a third-party service (icanhazip.com) that the opt-in
+     * @deprecated 2.0.0 The lookup called a third-party service (icanhazip.com) that the opt-in
      *                   notice didn't disclose. Read the IP from the request on your server instead.
      *
      * @return string Always empty
      */
     public function getUserIpAddress()
     {
-        _deprecated_function(__METHOD__, '1.1.0');
+        _deprecated_function(__METHOD__, '2.0.0');
 
         return '';
     }

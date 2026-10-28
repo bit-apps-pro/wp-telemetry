@@ -12,7 +12,7 @@ class Telemetry
     private static $feedback;
 
     // Sent as wp_telemetry so the server can tell payload versions apart; bump on every release.
-    private static $version = '1.1.0';
+    private static $version = '2.0.0';
 
     public static function getVersion()
     {
@@ -53,6 +53,7 @@ class Telemetry
             'skip'              => 'Skip',
             'dismiss'           => 'Dismiss this notice.',
             'data_shared'       => 'What we collect',
+            'marketing'         => 'Also email me tips and product news. You can unsubscribe anytime.',
             'terms'             => 'Terms of service',
             'privacy'           => 'Privacy Policy',
             'survey_title'      => 'Quick Feedback',

@@ -115,6 +115,30 @@ Call this from your plugin's uninstall routine. It deletes every option the libr
 Telemetry::report()->deleteData($plugin_prefix);
 ```
 
+### # Marketing Email Consent (optional)
+
+Agreeing to telemetry is not agreeing to marketing email. If you want to send product news, ask separately:
+
+```php
+TelemetryConfig::setShowMarketingOptIn(true);
+```
+
+This adds an **unticked** checkbox to the opt-in notice: "Also email me tips and product news. You can unsubscribe anytime." If the admin ticks it before clicking **Allow & Continue**, reports include `marketing_consent: true` and `marketing_consent_at` (when they ticked it, as a Unix timestamp). It's also added to the "What we collect" list.
+
+To ask in your own settings page instead, or to let users change their answer later:
+
+```php
+Telemetry::report()->setMarketingConsent(true);  // the user ticked your checkbox
+Telemetry::report()->setMarketingConsent(false); // the user unticked it
+Telemetry::report()->hasMarketingConsent();
+```
+
+Rules for your server and emails:
+
+- Only send marketing email when the latest report says `marketing_consent: true`.
+- Never pre-tick the box. Pre-ticked boxes are not valid consent under GDPR or CASL.
+- Put an unsubscribe link in every email and honor it. A change made on the site only reaches your server with the next weekly report, and never if tracking is off, so the unsubscribe link is what users rely on.
+
 ### # Tracking Report Modify
 
 **⚡️ Filter Hook to Add Additional Data :**
@@ -191,6 +215,14 @@ add_filter($plugin_prefix . 'telemetry_notice_description', function ($descripti
 });
 ```
 
+**⚡️ Hide the notice**
+
+```php
+TelemetryConfig::setShowAdminNotice(false);
+```
+
+You can call it before or after `Telemetry::report()->init()`. With the notice hidden, nothing is sent until your own setting calls `trackingOptIn()`, so show the `dataWeCollect()` list next to that setting.
+
 **⚡️ Choose where the notice is shown**
 
 By default the notice is shown only on the Dashboard, the Plugins page, and the screens under your plugin's admin menu: the menu whose slug matches your plugin slug, including its post type and settings screens (WordPress.org guideline 11). If your menu slug is different, use this filter. `$screen` can be `null`:
@@ -223,7 +255,7 @@ add_filter($plugin_prefix . 'telemetry_strings', function ($strings) {
 });
 ```
 
-The keys are `allow`, `skip`, `dismiss`, `data_shared`, `terms`, `privacy`, `survey_title`, `survey_caption`, `survey_disclosure`, `survey_submit` and `survey_skip`. The filter gets finished text, with your plugin title already in `survey_caption` and `survey_disclosure`, and its values are printed as they are.
+The keys are `allow`, `skip`, `dismiss`, `data_shared`, `marketing`, `terms`, `privacy`, `survey_title`, `survey_caption`, `survey_disclosure`, `survey_submit` and `survey_skip`. The filter gets finished text, with your plugin title already in `survey_caption` and `survey_disclosure`, and its values are printed as they are.
 
 ### # Deactivation Feedback Survey
 
@@ -256,6 +288,6 @@ The package follows [guideline 7](https://developer.wordpress.org/plugins/wordpr
 1. **Document the external service in `readme.txt`.** Add an `== External services ==` section that names your telemetry server, lists the data sent (the opt-in notice list) and says when (weekly after opt-in, and on deactivation feedback when submitted). Link your Terms and Privacy Policy.
 2. **Set `setTermsUrl()` and `setPolicyUrl()`.** They are optional in code, but in practice WordPress.org expects them.
 3. **List extra data, and show the list wherever users opt in.** See "List the data you add in the opt-in notice" above.
-4. **Keep consent honest.** The report includes the site admin email and the first administrator's name, so don't call the data "non-sensitive" or "anonymous" in custom notice text. Don't bundle marketing email consent into the telemetry opt-in, and don't use the email from reports for marketing.
+4. **Keep consent honest.** The report includes the site admin email and the first administrator's name, so don't call the data "non-sensitive" or "anonymous" in custom notice text. Don't bundle marketing email consent into the telemetry opt-in. Only send marketing email to sites whose reports say `marketing_consent: true` (see "Marketing Email Consent" above).
 5. **Only opt in on user action.** Call `trackingOptIn()` only when the user turns tracking on, such as by enabling a setting. Calling it automatically is tracking without consent.
 6. **Respect opt-outs on your server.** Opt-outs aren't sent, so treat a site as opted out once its weekly reports stop (for example after three missed weeks).
