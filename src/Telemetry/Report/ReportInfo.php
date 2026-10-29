@@ -118,9 +118,6 @@ class ReportInfo
         $serverData['mysql_version'] = $wpdb->db_version();
 
         $serverData['php_max_upload_size'] = size_format(wp_max_upload_size());
-        $serverData['php_default_timezone'] = date_default_timezone_get();
-        $serverData['php_soap'] = class_exists('SoapClient') ? 'Yes' : 'No';
-        $serverData['php_fsockopen'] = \function_exists('fsockopen') ? 'Yes' : 'No';
         $serverData['php_curl'] = \function_exists('curl_init') ? 'Yes' : 'No';
 
         return $serverData;
@@ -138,6 +135,11 @@ class ReportInfo
         $wpData['memory_limit'] = WP_MEMORY_LIMIT;
         $wpData['debug_mode'] = (\defined('WP_DEBUG') && WP_DEBUG) ? 'Yes' : 'No';
         $wpData['locale'] = get_locale();
+
+        // The timezone set in Settings > General; PHP's default is always UTC under WordPress.
+        // wp_timezone_string() is WordPress 5.3+.
+        $wpData['timezone'] = \function_exists('wp_timezone_string') ? wp_timezone_string() : get_option('timezone_string');
+
         $wpData['version'] = get_bloginfo('version');
         $wpData['multisite'] = is_multisite() ? 'Yes' : 'No';
         $wpData['theme_slug'] = get_stylesheet();
@@ -146,8 +148,6 @@ class ReportInfo
 
         $wpData['theme_name'] = $theme->get('Name');
         $wpData['theme_version'] = $theme->get('Version');
-        $wpData['theme_uri'] = $theme->get('ThemeURI');
-        $wpData['theme_author'] = $theme->get('Author');
 
         return $wpData;
     }

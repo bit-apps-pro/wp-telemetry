@@ -12,7 +12,7 @@ class Telemetry
     private static $feedback;
 
     // Sent as wp_telemetry so the server can tell payload versions apart; bump on every release.
-    private static $version = '2.0.0';
+    private static $version = '2.1.0';
 
     public static function getVersion()
     {

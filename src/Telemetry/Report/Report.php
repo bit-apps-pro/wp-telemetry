@@ -267,22 +267,19 @@ class Report
         $user_name = $reportInfo->getUserName();
 
         $data = [
-            'url'              => esc_url(home_url()),
-            'site'             => $reportInfo->getSiteName(),
-            'admin_email'      => get_option('admin_email'),
-            'first_name'       => $user_name['firstName'],
-            'last_name'        => $user_name['lastName'],
-            'server'           => $reportInfo->getServerInfo(),
-            'wp'               => $reportInfo->getWpInfo(),
-            'users'            => $reportInfo->getUserCounts(),
-            'active_plugins'   => \count($allPlugins['activePlugins']),
-            'inactive_plugins' => \count($allPlugins['inactivePlugins']),
-            'ip_address'       => '', // IP lookup removed; key kept for servers that expect it.
-            'plugin_slug'      => TelemetryConfig::getPrefix(),
-            'plugin_version'   => TelemetryConfig::getversion(),
-            'is_local'         => $reportInfo->isLocalServer(),
-            'skipped'          => false,
-            'opt_in_source'    => get_option(TelemetryConfig::getPrefix() . 'tracking_opt_in_source', ''),
+            'url'            => esc_url(home_url()),
+            'site'           => $reportInfo->getSiteName(),
+            'admin_email'    => get_option('admin_email'),
+            'first_name'     => $user_name['firstName'],
+            'last_name'      => $user_name['lastName'],
+            'server'         => $reportInfo->getServerInfo(),
+            'wp'             => $reportInfo->getWpInfo(),
+            'users'          => $reportInfo->getUserCounts(),
+            'active_plugins' => \count($allPlugins['activePlugins']),
+            'plugin_slug'    => TelemetryConfig::getPrefix(),
+            'plugin_version' => TelemetryConfig::getversion(),
+            'is_local'       => $reportInfo->isLocalServer(),
+            'opt_in_source'  => get_option(TelemetryConfig::getPrefix() . 'tracking_opt_in_source', ''),
         ];
 
         if ($this->addPluginData) {
@@ -320,10 +317,10 @@ class Report
             'Site name and URL',
             'Site admin email address and the first administrator\'s name',
             'Server environment (server software, PHP and MySQL versions, PHP settings, whether the site is local)',
-            'WordPress version, language and settings (memory limit, debug mode, multisite)',
-            'Active theme (name, version, author, website)',
+            'WordPress version, language, timezone and settings (memory limit, debug mode, multisite)',
+            'Active theme (name and version)',
             'Number of users, in total and per role',
-            'Number of active and inactive plugins',
+            'Number of active plugins',
             TelemetryConfig::getTitle() . ' version and telemetry library version',
             'Which page you opted in from, and whether you skipped this before',
         ];
